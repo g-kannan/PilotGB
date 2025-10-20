@@ -75,7 +75,10 @@ Optional ad-hoc checks:
 - Tear down the database: `docker compose down -v`
 
 ## 8. SOW, Approvals, and Onboarding Workflows
+- **Project Onboarding**: Create initiatives with `POST /api/initiatives` or retire them with `DELETE /api/initiatives/:id`. The web UI exposes a full project creation form for scope metadata, owners, and initial metrics.
 - **Scope of Work**: Update summary, deliverables, or sign-offs via `PATCH /api/initiatives/:id/sow`. Setting `pmApproved` and `architectApproved` to `true` auto-promotes the status to `APPROVED`. Mark the contract as `SIGNED_OFF` once both approvals exist.
+- **Data & AI Metrics**: Include structured payloads when calling the SOW endpoint to adjust data scope (`dataMetrics`) and AI scope (`aiMetrics`). Numeric inputs accept integers/floats; enums such as complexity, sensitivity, or deployment status must match the values in `schema.prisma`.
 - **Stage Approvals**: Before advancing, obtain approvals from the assigned project manager and data architect through `PATCH /api/initiatives/:id/approvals/:approvalId`. The frontend exposes quick toggles per stage.
-- **Team Onboarding**: Track staffing and access provisioning under `/api/initiatives/:id/team-members/:memberId` (onboarding status) and `/api/initiatives/:id/access/:accessId` (access workflow). The React UI surfaces selects for everyday updates.
+- **Team Directory**: Add new people with `POST /api/team-members` and assign them using `POST /api/initiatives/:id/team-members`. Remove assignments via `DELETE /api/initiatives/:id/team-members/:memberId`. The React UI surfaces dropdowns for everyday updates.
+- **Access Provisioning**: Maintain access workflows under `/api/initiatives/:id/access/:accessId`; the UI lets you switch status without leaving the dashboard.
 - **Lifecycle Enforcement**: The API blocks transitions when checklists, approvals, or SOW state are incomplete. Expect HTTP 400 responses with descriptive payloads if a gate is violated.

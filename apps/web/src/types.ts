@@ -37,6 +37,19 @@ export type AccessStatus = 'REQUESTED' | 'IN_PROGRESS' | 'GRANTED' | 'BLOCKED';
 
 export type StageApprovalRole = 'PROJECT_MANAGER' | 'DATA_ARCHITECT';
 
+export type ProjectType = 'DATA' | 'AI' | 'HYBRID';
+
+export type DataComplexity = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export type DataSensitivity = 'INTERNAL' | 'CONFIDENTIAL' | 'REGULATED';
+
+export type ModelDeploymentStatus =
+  | 'IDEATION'
+  | 'TRAINING'
+  | 'VALIDATING'
+  | 'DEPLOYED'
+  | 'RETIRED';
+
 export interface StageChecklistItem {
   id: string;
   stage: Stage;
@@ -92,12 +105,44 @@ export interface Dependency {
   dueDate?: string | null;
 }
 
+export interface DataScopeMetrics {
+  id: string;
+  scopeOfWorkId: string;
+  dataSources: number;
+  tables: number;
+  pipelines: number;
+  dashboards: number;
+  models: number;
+  volumeTb: number;
+  complexity: DataComplexity;
+  sensitivity: DataSensitivity;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiScopeMetrics {
+  id: string;
+  scopeOfWorkId: string;
+  modelType?: string | null;
+  useCase?: string | null;
+  baselineAccuracy?: number | null;
+  targetAccuracy?: number | null;
+  trainingDataTb?: number | null;
+  featureCount?: number | null;
+  trainingIterations?: number | null;
+  deploymentStatus: ModelDeploymentStatus;
+  monitoringKpis?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ScopeOfWork {
   id: string;
   initiativeId: string;
   summary: string;
   deliverables: string;
   status: SOWStatus;
+  projectType: ProjectType;
   pmOwner: string;
   architectOwner: string;
   pmApproved: boolean;
@@ -106,6 +151,8 @@ export interface ScopeOfWork {
   architectApprovedAt?: string | null;
   signedOffAt?: string | null;
   lastReviewedAt?: string | null;
+  dataMetrics?: DataScopeMetrics | null;
+  aiMetrics?: AiScopeMetrics | null;
 }
 
 export interface StageApproval {
@@ -223,4 +270,16 @@ export interface AccessResponse {
 
 export interface MemberResponse {
   member: TeamMember;
+}
+
+export interface AssignmentResponse {
+  assignment: InitiativeAssignment;
+}
+
+export interface TeamMembersResponse {
+  members: TeamMember[];
+}
+
+export interface InitiativeResponse {
+  initiative: Initiative;
 }

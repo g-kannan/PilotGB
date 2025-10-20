@@ -1,3 +1,4 @@
+import { FormEvent, useState } from 'react';
 import {
   useMutation,
   useQuery,
@@ -5,6 +6,10 @@ import {
 } from '@tanstack/react-query';
 import {
   fetchInitiatives,
+  fetchTeamMembers,
+  createTeamMember,
+  assignTeamMember,
+  removeTeamMember,
   updateAccessProvision,
   updateTeamMemberOnboarding,
 } from '../lib/api';
@@ -16,6 +21,7 @@ import type {
   AccessStatus,
   Initiative,
   OnboardingStatus,
+  TeamMember,
 } from '../types';
 
 const onboardingOptions = Object.entries(ONBOARDING_STATUS_LABELS);
@@ -29,6 +35,14 @@ export const TeamOnboarding = () => {
     queryFn: fetchInitiatives,
     staleTime: 30_000,
   });
+
+  const membersQuery = useQuery({
+    queryKey: ['team-members'],
+    queryFn: fetchTeamMembers,
+    staleTime: 60_000,
+  });
+
+  const teamMembers = membersQuery.data?.members ?? [];
 
   const onboardingMutation = useMutation<
     unknown,
@@ -66,6 +80,91 @@ export const TeamOnboarding = () => {
     },
   });
 
+  const createMemberMutation = useMutation<
+    unknown,
+    Error,
+    {
+      name: string;
+      email: string;
+      roleTitle: string;
+      team: string;
+      startDate?: string;
+    }
+  >({
+    mutationFn: (payload) => createTeamMember(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['team-members'] });
+    },
+  });
+
+  const assignMemberMutation = useMutation<
+    unknown,
+    Error,
+    {
+      initiativeId: string;
+      memberId: string;
+      responsibility: string;
+    }
+  >({
+    mutationFn: ({ initiativeId, memberId, responsibility }) =>
+      assignTeamMember(initiativeId, {
+        memberId,
+        responsibility,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['initiatives'] });
+    },
+  });
+
+  const removeAssignmentMutation = useMutation<
+    unknown,
+    Error,
+    { initiativeId: string; memberId: string }
+  >({
+    mutationFn: ({ initiativeId, memberId }) =>
+      removeTeamMember(initiativeId, memberId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['initiatives'] });
+    },
+  });
+
+  const mutationError =
+    onboardingMutation.error ||
+    accessMutation.error ||
+    createMemberMutation.error ||
+    assignMemberMutation.error ||
+    removeAssignmentMutation.error;
+
+  const handleCreateMember = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const name = formData.get('name')?.toString().trim();
+    const email = formData.get('email')?.toString().trim();
+    const roleTitle = formData.get('roleTitle')?.toString().trim();
+    const team = formData.get('team')?.toString().trim();
+    const startDate = formData.get('startDate')?.toString().trim();
+
+    if (!name || !email || !roleTitle || !team) {
+      return;
+    }
+
+    createMemberMutation.mutate(
+      {
+        name,
+        email,
+        roleTitle,
+        team,
+        startDate: startDate || undefined,
+      },
+      {
+        onSuccess: () => {
+          form.reset();
+        },
+      },
+    );
+  };
+
   return (
     <section className="panel">
       <header className="panel__header">
@@ -73,13 +172,11 @@ export const TeamOnboarding = () => {
           <h2>Team Onboarding</h2>
           <p>Track staffing, access provisioning, and project readiness.</p>
         </div>
-        {(onboardingMutation.error || accessMutation.error) && (
+        {mutationError && (
           <div className="alert alert--error">
             <strong>Update failed:</strong>{' '}
-            {onboardingMutation.error instanceof Error
-              ? onboardingMutation.error.message
-              : accessMutation.error instanceof Error
-              ? accessMutation.error.message
+            {mutationError instanceof Error
+              ? mutationError.message
               : 'Unexpected error'}
           </div>
         )}
@@ -93,10 +190,80 @@ export const TeamOnboarding = () => {
               : 'Unable to load team onboarding information.'}
           </p>
         )}
+        {membersQuery.isError && (
+          <p className="panel__body--error">
+            {membersQuery.error instanceof Error
+              ? membersQuery.error.message
+              : 'Unable to load team directory.'}
+          </p>
+        )}
         {!isLoading && !isError && data && (
-          <div className="onboarding-grid">
-            {data.initiatives.map((initiative: Initiative) => (
-              <article key={initiative.id} className="onboarding-card">
+          <>
+            <div className="panel__subsection">
+              <h3>Create Team Member</h3>
+              <form className="inline-form" onSubmit={handleCreateMember}>
+                <input name="name" placeholder="Name" required />
+                <input name="email" type="email" placeholder="Email" required />
+                <input name="roleTitle" placeholder="Role Title" required />
+                <input name="team" placeholder="Team" required />
+                <input name="startDate" type="date" />
+                <button
+                  className="button"
+                  type="submit"
+                  disabled={createMemberMutation.isPending}
+                >
+                  {createMemberMutation.isPending ? 'Adding…' : 'Add Member'}
+                </button>
+              </form>
+            </div>
+            <div className="onboarding-grid">
+              {data.initiatives.map((initiative: Initiative) => {
+              const assignedMemberIds = new Set(
+                initiative.assignments.map((assignment) => assignment.member.id),
+              );
+              const availableMembers = teamMembers.filter(
+                (member) => !assignedMemberIds.has(member.id),
+              );
+              const assignPending =
+                assignMemberMutation.isPending &&
+                assignMemberMutation.variables?.initiativeId === initiative.id;
+              const removingMemberId =
+                removeAssignmentMutation.isPending &&
+                removeAssignmentMutation.variables?.initiativeId === initiative.id
+                  ? removeAssignmentMutation.variables.memberId
+                  : undefined;
+
+              const handleAssignMember = (
+                event: FormEvent<HTMLFormElement>,
+              ) => {
+                event.preventDefault();
+                const formData = new FormData(event.currentTarget);
+                const memberId = formData.get('memberId')?.toString();
+                const responsibility = formData
+                  .get('responsibility')
+                  ?.toString()
+                  .trim();
+
+                if (!memberId || !responsibility) {
+                  return;
+                }
+
+                assignMemberMutation.mutate(
+                  {
+                    initiativeId: initiative.id,
+                    memberId,
+                    responsibility,
+                  },
+                  {
+                    onSuccess: () => {
+                      event.currentTarget.reset();
+                    },
+                  },
+                );
+              };
+
+              return (
+                <article key={initiative.id} className="onboarding-card">
                 <header className="onboarding-card__header">
                   <div>
                     <h3>{initiative.name}</h3>
@@ -112,6 +279,7 @@ export const TeamOnboarding = () => {
                         <th>Role</th>
                         <th>Team</th>
                         <th>Status</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -142,10 +310,74 @@ export const TeamOnboarding = () => {
                               ))}
                             </select>
                           </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="button button--ghost"
+                              disabled={removingMemberId === assignment.member.id}
+                              onClick={() =>
+                                removeAssignmentMutation.mutate({
+                                  initiativeId: initiative.id,
+                                  memberId: assignment.member.id,
+                                })
+                              }
+                            >
+                              {removingMemberId === assignment.member.id
+                                ? 'Removing…'
+                                : 'Remove'}
+                            </button>
+                          </td>
                         </tr>
                       ))}
+                      {!initiative.assignments.length && (
+                        <tr>
+                          <td colSpan={5} className="table__empty">
+                            No team members assigned yet.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
+                  {availableMembers.length > 0 ? (
+                    <form
+                      className="inline-form"
+                      onSubmit={handleAssignMember}
+                    >
+                      <select
+                        name="memberId"
+                        defaultValue=""
+                        required
+                        disabled={assignPending || membersQuery.isLoading}
+                      >
+                        <option value="" disabled>
+                          Select team member
+                        </option>
+                        {availableMembers.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.name} · {member.team}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        name="responsibility"
+                        placeholder="Responsibility"
+                        required
+                      />
+                      <button
+                        className="button"
+                        type="submit"
+                        disabled={assignPending || membersQuery.isLoading}
+                      >
+                        {assignPending ? 'Assigning…' : 'Assign'}
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="table__empty">
+                      {teamMembers.length === 0
+                        ? 'Add team members to assign.'
+                        : 'All available members are assigned.'}
+                    </p>
+                  )}
                 </div>
                 <div className="onboarding-card__section">
                   <h4>Access Provisioning</h4>
@@ -196,8 +428,9 @@ export const TeamOnboarding = () => {
                   </table>
                 </div>
               </article>
-            ))}
+            })}
           </div>
+        </>
         )}
       </div>
     </section>

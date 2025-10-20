@@ -1,11 +1,15 @@
 import {
   AccessStatus,
   AssetType,
+  DataComplexity,
+  DataSensitivity,
   DependencyStatus,
   HealthStatus,
   InitiativeStatus,
+  ModelDeploymentStatus,
   OnboardingStatus,
   PrismaClient,
+  ProjectType,
   RiskLevel,
   RiskStatus,
   SOWStatus,
@@ -116,6 +120,7 @@ async function seedInitiatives() {
     checklistCompletedStages: Stage[];
     scope: {
       status: SOWStatus;
+      projectType: ProjectType;
       pmApproved: boolean;
       pmApprovedAt: Date | null;
       architectApproved: boolean;
@@ -123,6 +128,27 @@ async function seedInitiatives() {
       signedOffAt: Date | null;
       summary: string;
       deliverables: string;
+      dataMetrics?: {
+        dataSources: number;
+        tables: number;
+        pipelines: number;
+        dashboards: number;
+        models: number;
+        volumeTb: number;
+        complexity: DataComplexity;
+        sensitivity: DataSensitivity;
+      };
+      aiMetrics?: {
+        modelType?: string;
+        useCase?: string;
+        baselineAccuracy?: number;
+        targetAccuracy?: number;
+        trainingDataTb?: number;
+        featureCount?: number;
+        trainingIterations?: number;
+        deploymentStatus: ModelDeploymentStatus;
+        monitoringKpis?: string;
+      };
     };
     access: Array<{
       member: MemberKey;
@@ -151,18 +177,29 @@ async function seedInitiatives() {
         targetDate: new Date('2025-06-30'),
       },
       checklistCompletedStages: [Stage.INGESTION, Stage.TRANSFORMATION, Stage.ENRICHMENT],
-      scope: {
-        status: SOWStatus.APPROVED,
-        pmApproved: true,
-        pmApprovedAt: new Date('2025-01-20'),
-        architectApproved: true,
-        architectApprovedAt: new Date('2025-01-22'),
-        signedOffAt: null,
-        summary:
-          'Scope includes ingestion through enrichment of customer telemetry tied to executive dashboards.',
-        deliverables:
-          'Golden customer dataset, unified identity graph, production-ready Looker dashboard, runbook.',
+    scope: {
+      status: SOWStatus.APPROVED,
+      projectType: ProjectType.DATA,
+      pmApproved: true,
+      pmApprovedAt: new Date('2025-01-20'),
+      architectApproved: true,
+      architectApprovedAt: new Date('2025-01-22'),
+      signedOffAt: null,
+      summary:
+        'Scope includes ingestion through enrichment of customer telemetry tied to executive dashboards.',
+      deliverables:
+        'Golden customer dataset, unified identity graph, production-ready Looker dashboard, runbook.',
+      dataMetrics: {
+        dataSources: 6,
+        tables: 24,
+        pipelines: 8,
+        dashboards: 5,
+        models: 2,
+        volumeTb: 1.8,
+        complexity: DataComplexity.HIGH,
+        sensitivity: DataSensitivity.CONFIDENTIAL,
       },
+    },
       access: [
         {
           member: 'analyticsEngineer',
@@ -201,18 +238,29 @@ async function seedInitiatives() {
         targetDate: new Date('2025-05-30'),
       },
       checklistCompletedStages: stageSequence.slice(0, 4),
-      scope: {
-        status: SOWStatus.SIGNED_OFF,
-        pmApproved: true,
-        pmApprovedAt: new Date('2025-02-05'),
-        architectApproved: true,
-        architectApprovedAt: new Date('2025-02-06'),
-        signedOffAt: new Date('2025-02-10'),
-        summary:
-          'Finance governance program covering reconciliation, variance detection, and audit readiness.',
-        deliverables:
-          'Automated validation suite, exception management workflow, quarterly audit dashboard.',
+    scope: {
+      status: SOWStatus.SIGNED_OFF,
+      projectType: ProjectType.DATA,
+      pmApproved: true,
+      pmApprovedAt: new Date('2025-02-05'),
+      architectApproved: true,
+      architectApprovedAt: new Date('2025-02-06'),
+      signedOffAt: new Date('2025-02-10'),
+      summary:
+        'Finance governance program covering reconciliation, variance detection, and audit readiness.',
+      deliverables:
+        'Automated validation suite, exception management workflow, quarterly audit dashboard.',
+      dataMetrics: {
+        dataSources: 3,
+        tables: 12,
+        pipelines: 5,
+        dashboards: 3,
+        models: 0,
+        volumeTb: 0.9,
+        complexity: DataComplexity.MEDIUM,
+        sensitivity: DataSensitivity.REGULATED,
       },
+    },
       access: [
         {
           member: 'analyticsEngineer',
@@ -246,18 +294,40 @@ async function seedInitiatives() {
         targetDate: new Date('2025-04-30'),
       },
       checklistCompletedStages: stageSequence.slice(0, 5),
-      scope: {
-        status: SOWStatus.IN_REVIEW,
-        pmApproved: false,
-        pmApprovedAt: null,
-        architectApproved: false,
-        architectApprovedAt: null,
-        signedOffAt: null,
-        summary:
-          'Attribution insights for marketing leadership with governance constraints around PII access.',
-        deliverables:
-          'Curated attribution dataset, executive summary dashboard, privacy compliance documentation.',
+    scope: {
+      status: SOWStatus.IN_REVIEW,
+      projectType: ProjectType.HYBRID,
+      pmApproved: false,
+      pmApprovedAt: null,
+      architectApproved: false,
+      architectApprovedAt: null,
+      signedOffAt: null,
+      summary:
+        'Attribution insights for marketing leadership with governance constraints around PII access.',
+      deliverables:
+        'Curated attribution dataset, executive summary dashboard, privacy compliance documentation.',
+      dataMetrics: {
+        dataSources: 5,
+        tables: 18,
+        pipelines: 7,
+        dashboards: 4,
+        models: 1,
+        volumeTb: 2.4,
+        complexity: DataComplexity.HIGH,
+        sensitivity: DataSensitivity.CONFIDENTIAL,
       },
+      aiMetrics: {
+        modelType: 'Propensity / Attribution Model',
+        useCase: 'Multi-touch attribution weighting for campaign ROI',
+        baselineAccuracy: 0.68,
+        targetAccuracy: 0.8,
+        trainingDataTb: 1.1,
+        featureCount: 45,
+        trainingIterations: 30,
+        deploymentStatus: ModelDeploymentStatus.TRAINING,
+        monitoringKpis: 'Holdout uplift, drift rate, response latency',
+      },
+    },
       access: [
         {
           member: 'analyticsEngineer',
@@ -454,12 +524,13 @@ async function seedInitiatives() {
       data: historyEntries,
     });
 
-    await prisma.scopeOfWork.create({
+    const scope = await prisma.scopeOfWork.create({
       data: {
         initiativeId: created.id,
         summary: entry.scope.summary,
         deliverables: entry.scope.deliverables,
         status: entry.scope.status,
+        projectType: entry.scope.projectType,
         pmOwner: members.projectManager.name,
         architectOwner: members.dataArchitect.name,
         pmApproved: entry.scope.pmApproved,
@@ -470,6 +541,24 @@ async function seedInitiatives() {
         lastReviewedAt: new Date('2025-03-10'),
       },
     });
+
+    if (entry.scope.dataMetrics) {
+      await prisma.dataScopeMetrics.create({
+        data: {
+          scopeOfWorkId: scope.id,
+          ...entry.scope.dataMetrics,
+        },
+      });
+    }
+
+    if (entry.scope.aiMetrics) {
+      await prisma.aiScopeMetrics.create({
+        data: {
+          scopeOfWorkId: scope.id,
+          ...entry.scope.aiMetrics,
+        },
+      });
+    }
 
     await prisma.initiativeAssignment.createMany({
       data: [

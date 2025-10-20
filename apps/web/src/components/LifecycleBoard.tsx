@@ -8,12 +8,34 @@ import {
   advanceInitiativeStage,
   fetchInitiatives,
   toggleChecklistItem,
+  updateInitiative,
+  deleteInitiative,
   updateStageApproval,
 } from '../lib/api';
-import { APPROVAL_ROLE_LABELS, STAGE_DESCRIPTIONS, STAGE_LABELS, STAGE_SEQUENCE, STATUS_COLORS, HEALTH_BADGES, RISK_BADGES, getNextStage } from '../constants';
-import type { Initiative, Stage, StageChecklistItem, StageApprovalRole } from '../types';
+import { APPROVAL_ROLE_LABELS, STAGE_DESCRIPTIONS, STAGE_LABELS, STAGE_SEQUENCE, STATUS_COLORS, HEALTH_BADGES, RISK_BADGES, PROJECT_TYPE_LABELS, DATA_COMPLEXITY_LABELS, DATA_SENSITIVITY_LABELS, getNextStage } from '../constants';
+import type { Initiative, Stage, StageChecklistItem, StageApprovalRole, ProjectType } from '../types';
 
 const describeStatus = (status: string) => status.replace('_', ' ');
+
+const formatPercent = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return '—';
+  }
+
+  const normalized = value > 1 ? value : value * 100;
+  const rounded = Math.round(normalized * 10) / 10;
+  return `${rounded}%`;
+};
+
+const formatNumber = (value?: number | null, fractionDigits = 0) => {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return '—';
+  }
+
+  return fractionDigits > 0
+    ? value.toFixed(fractionDigits)
+    : value.toString();
+};
 
 const deriveChecklistProgress = (
   initiative: Initiative,
@@ -91,6 +113,28 @@ export const LifecycleBoard = () => {
     },
   });
 
+  const updateInitiativeMutation = useMutation<
+    unknown,
+    Error,
+    { initiativeId: string; data: Record<string, unknown> }
+  >({
+    mutationFn: ({ initiativeId, data }) =>
+      updateInitiative(initiativeId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['initiatives'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
+    },
+  });
+
+  const deleteInitiativeMutation = useMutation<unknown, Error, string>({
+    mutationFn: (initiativeId) => deleteInitiative(initiativeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['initiatives'] });
+      queryClient.invalidateQueries({ queryKey: ['metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+    },
+  });
+
   const REQUIRED_APPROVAL_ROLES: StageApprovalRole[] = [
     'PROJECT_MANAGER',
     'DATA_ARCHITECT',
@@ -142,7 +186,9 @@ export const LifecycleBoard = () => {
   const mutationError =
     checklistMutation.error ||
     transitionMutation.error ||
-    approvalMutation.error;
+    approvalMutation.error ||
+    updateInitiativeMutation.error ||
+    deleteInitiativeMutation.error;
 
   return (
     <section className="panel">
@@ -189,6 +235,60 @@ export const LifecycleBoard = () => {
                       transitionMutation.isPending &&
                       transitionMutation.variables?.initiativeId ===
                         initiative.id;
+                    const dataMetrics = initiative.scopeOfWork?.dataMetrics;
+                    const aiMetrics = initiative.scopeOfWork?.aiMetrics;
+                    const isUpdatingOwners =
+                      updateInitiativeMutation.isPending &&
+                      updateInitiativeMutation.variables?.initiativeId ===
+                        initiative.id;
+                    const isDeleting =
+                      deleteInitiativeMutation.isPending &&
+                      deleteInitiativeMutation.variables === initiative.id;
+
+                    const handleUpdateOwners = () => {
+                      const pmInput = window.prompt(
+                        'Project Manager',
+                        initiative.projectManager ?? '',
+                      );
+                      if (pmInput === null) {
+                        return;
+                      }
+                      const architectInput = window.prompt(
+                        'Data Architect',
+                        initiative.dataArchitect ?? '',
+                      );
+                      if (architectInput === null) {
+                        return;
+                      }
+
+                      const payload: Record<string, string> = {};
+                      if (pmInput.trim()) {
+                        payload.projectManager = pmInput.trim();
+                      }
+                      if (architectInput.trim()) {
+                        payload.dataArchitect = architectInput.trim();
+                      }
+
+                      if (Object.keys(payload).length === 0) {
+                        return;
+                      }
+
+                      updateInitiativeMutation.mutate({
+                        initiativeId: initiative.id,
+                        data: payload,
+                      });
+                    };
+
+                    const handleDeleteInitiative = () => {
+                      if (
+                        !window.confirm(
+                          `Delete project "${initiative.name}" and all related data? This cannot be undone.`,
+                        )
+                      ) {
+                        return;
+                      }
+                      deleteInitiativeMutation.mutate(initiative.id);
+                    };
 
                     return (
                       <article key={initiative.id} className="card">
@@ -241,6 +341,101 @@ export const LifecycleBoard = () => {
                               </div>
                             )}
                           </div>
+                          {initiative.scopeOfWork && (
+                            <div className="card__meta card__meta--owners">
+                              <div>
+                                <span className="card__meta-label">Project Type</span>
+                                <span>
+                                  {
+                                    PROJECT_TYPE_LABELS[
+                                      initiative.scopeOfWork.projectType
+                                    ]
+                                  }
+                                </span>
+                              </div>
+                              {initiative.projectManager && (
+                                <div>
+                                  <span className="card__meta-label">Project Manager</span>
+                                  <span>{initiative.projectManager}</span>
+                                </div>
+                              )}
+                              {initiative.dataArchitect && (
+                                <div>
+                                  <span className="card__meta-label">Data Architect</span>
+                                  <span>{initiative.dataArchitect}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {dataMetrics && (
+                            <div className="card__metrics">
+                              <span className="card__metrics-title">Data Scope</span>
+                              <div className="card__metrics-grid">
+                                <span>
+                                  Sources: {dataMetrics.dataSources}
+                                </span>
+                                <span>
+                                  Tables: {dataMetrics.tables}
+                                </span>
+                                <span>
+                                  Pipelines: {dataMetrics.pipelines}
+                                </span>
+                                <span>
+                                  Dashboards: {dataMetrics.dashboards}
+                                </span>
+                                <span>
+                                  Models: {dataMetrics.models}
+                                </span>
+                                <span>
+                                  Volume: {formatNumber(dataMetrics.volumeTb, 1)}{' '}
+                                  TB
+                                </span>
+                              </div>
+                              <div className="card__metrics-footnote">
+                                Complexity:{' '}
+                                {DATA_COMPLEXITY_LABELS[dataMetrics.complexity]}{' '}
+                                · Sensitivity:{' '}
+                                {DATA_SENSITIVITY_LABELS[dataMetrics.sensitivity]}
+                              </div>
+                            </div>
+                          )}
+                          {aiMetrics && (
+                            <div className="card__metrics">
+                              <span className="card__metrics-title">AI Scope</span>
+                              <div className="card__metrics-grid">
+                                <span>
+                                  Model: {aiMetrics.modelType ?? '—'}
+                                </span>
+                                <span>
+                                  Use Case: {aiMetrics.useCase ?? '—'}
+                                </span>
+                                <span>
+                                  Accuracy:{' '}
+                                  {formatPercent(aiMetrics.baselineAccuracy)} →{' '}
+                                  {formatPercent(aiMetrics.targetAccuracy)}
+                                </span>
+                                <span>
+                                  Training Data:{' '}
+                                  {formatNumber(aiMetrics.trainingDataTb, 1)}{' '}
+                                  TB
+                                </span>
+                                <span>
+                                  Features: {formatNumber(aiMetrics.featureCount)}
+                                </span>
+                                <span>
+                                  Iterations: {formatNumber(aiMetrics.trainingIterations)}
+                                </span>
+                                <span>
+                                  Status: {aiMetrics.deploymentStatus}
+                                </span>
+                              </div>
+                              {aiMetrics.monitoringKpis && (
+                                <p className="card__metrics-note">
+                                  KPIs: {aiMetrics.monitoringKpis}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </section>
                         <section className="card__section">
                           <div className="card__progress">
@@ -330,7 +525,7 @@ export const LifecycleBoard = () => {
                           </div>
                         </section>
                         <section className="card__section card__section--footer">
-                          <div>
+                          <div className="card__footer-info">
                             {!!initiative.risks.length && (
                               <span className="chip">
                                 Risks: {initiative.risks.length}
@@ -342,26 +537,46 @@ export const LifecycleBoard = () => {
                               </span>
                             )}
                           </div>
-                          {nextStage && (
-                            <button
-                              className="button"
-                              disabled={!readyForTransition || isAdvancing}
-                              onClick={() =>
-                                transitionMutation.mutate({
-                                  initiativeId: initiative.id,
-                                  targetStage: nextStage,
-                                })
-                              }
-                            >
-                              {isAdvancing
-                                ? 'Advancing…'
-                                : readyForTransition
-                                ? `Move to ${STAGE_LABELS[nextStage]}`
-                                : checklistReady
-                                ? 'Awaiting stage approvals'
-                                : 'Complete checklist to advance'}
-                            </button>
-                          )}
+                          <div className="card__footer-actions">
+                            {nextStage && (
+                              <button
+                                className="button"
+                                disabled={!readyForTransition || isAdvancing}
+                                onClick={() =>
+                                  transitionMutation.mutate({
+                                    initiativeId: initiative.id,
+                                    targetStage: nextStage,
+                                  })
+                                }
+                              >
+                                {isAdvancing
+                                  ? 'Advancing…'
+                                  : readyForTransition
+                                  ? `Move to ${STAGE_LABELS[nextStage]}`
+                                  : checklistReady
+                                  ? 'Awaiting stage approvals'
+                                  : 'Complete checklist to advance'}
+                              </button>
+                            )}
+                            <div className="card__secondary-actions">
+                              <button
+                                type="button"
+                                className="button button--ghost"
+                                onClick={handleUpdateOwners}
+                                disabled={isUpdatingOwners}
+                              >
+                                {isUpdatingOwners ? 'Saving…' : 'Set Owners'}
+                              </button>
+                              <button
+                                type="button"
+                                className="button button--danger"
+                                onClick={handleDeleteInitiative}
+                                disabled={isDeleting}
+                              >
+                                {isDeleting ? 'Deleting…' : 'Delete'}
+                              </button>
+                            </div>
+                          </div>
                         </section>
                       </article>
                     );

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { LifecycleBoard } from './components/LifecycleBoard';
+import { CreateInitiativeForm } from './components/CreateInitiativeForm';
 import { AssetRegistry } from './components/AssetRegistry';
 import { DeliveryHealth } from './components/DeliveryHealth';
 import { ScopeOfWorkPanel } from './components/ScopeOfWorkPanel';
@@ -21,6 +22,7 @@ export const App = () => (
         </div>
       </header>
       <main className="layout__main">
+        <CreateInitiativeForm />
         <LifecycleBoard />
         <div className="layout__grid layout__grid--balanced">
           <ScopeOfWorkPanel />

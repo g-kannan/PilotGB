@@ -83,6 +83,32 @@ enum StageApprovalRole {
   DATA_ARCHITECT
 }
 
+enum DataComplexity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum DataSensitivity {
+  INTERNAL
+  CONFIDENTIAL
+  REGULATED
+}
+
+enum ProjectType {
+  DATA
+  AI
+  HYBRID
+}
+
+enum ModelDeploymentStatus {
+  IDEATION
+  TRAINING
+  VALIDATING
+  DEPLOYED
+  RETIRED
+}
+
 model Initiative {
   id             String              @id @default(cuid())
   name           String
@@ -191,6 +217,7 @@ model ScopeOfWork {
   summary            String
   deliverables       String
   status             SOWStatus  @default(DRAFT)
+  projectType        ProjectType @default(DATA)
   pmOwner            String
   architectOwner     String
   pmApproved         Boolean    @default(false)
@@ -203,6 +230,8 @@ model ScopeOfWork {
   updatedAt          DateTime   @updatedAt
 
   initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  dataMetrics DataScopeMetrics?
+  aiMetrics   AiScopeMetrics?
 }
 
 model StageApproval {
@@ -264,4 +293,39 @@ model AccessProvision {
 
   @@index([initiativeId])
   @@index([memberId])
+}
+
+model DataScopeMetrics {
+  id            String         @id @default(cuid())
+  scopeOfWorkId String         @unique
+  dataSources   Int            @default(0)
+  tables        Int            @default(0)
+  pipelines     Int            @default(0)
+  dashboards    Int            @default(0)
+  models        Int            @default(0)
+  volumeTb      Float          @default(0)
+  complexity    DataComplexity @default(MEDIUM)
+  sensitivity   DataSensitivity @default(INTERNAL)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  scopeOfWork ScopeOfWork @relation(fields: [scopeOfWorkId], references: [id], onDelete: Cascade)
+}
+
+model AiScopeMetrics {
+  id                 String                @id @default(cuid())
+  scopeOfWorkId      String                @unique
+  modelType          String?
+  useCase            String?
+  baselineAccuracy   Float?
+  targetAccuracy     Float?
+  trainingDataTb     Float?
+  featureCount       Int?
+  trainingIterations Int?
+  deploymentStatus   ModelDeploymentStatus @default(IDEATION)
+  monitoringKpis     String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  scopeOfWork ScopeOfWork @relation(fields: [scopeOfWorkId], references: [id], onDelete: Cascade)
 }

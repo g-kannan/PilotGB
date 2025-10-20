@@ -7,6 +7,10 @@ import type {
   RiskLevel,
   StageApprovalRole,
   Stage,
+  ProjectType,
+  DataComplexity,
+  DataSensitivity,
+  ModelDeploymentStatus,
 } from './types';
 
 export const STAGE_SEQUENCE: Stage[] = [
@@ -80,6 +84,35 @@ export const ACCESS_STATUS_LABELS: Record<AccessStatus, string> = {
 export const APPROVAL_ROLE_LABELS: Record<StageApprovalRole, string> = {
   PROJECT_MANAGER: 'Project Manager',
   DATA_ARCHITECT: 'Data Architect',
+};
+
+export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
+  DATA: 'Data Project',
+  AI: 'AI / ML Project',
+  HYBRID: 'Hybrid',
+};
+
+export const DATA_COMPLEXITY_LABELS: Record<DataComplexity, string> = {
+  LOW: 'Low',
+  MEDIUM: 'Medium',
+  HIGH: 'High',
+};
+
+export const DATA_SENSITIVITY_LABELS: Record<DataSensitivity, string> = {
+  INTERNAL: 'Internal',
+  CONFIDENTIAL: 'Confidential',
+  REGULATED: 'Regulated',
+};
+
+export const MODEL_DEPLOYMENT_STATUS_LABELS: Record<
+  ModelDeploymentStatus,
+  string
+> = {
+  IDEATION: 'Ideation',
+  TRAINING: 'Training',
+  VALIDATING: 'Validating',
+  DEPLOYED: 'Deployed',
+  RETIRED: 'Retired',
 };
 
 export const getNextStage = (current: Stage): Stage | null => {

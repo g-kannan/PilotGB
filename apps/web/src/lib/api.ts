@@ -2,6 +2,8 @@ import type {
   AccessResponse,
   AccessStatus,
   AssetsResponse,
+  AssignmentResponse,
+  InitiativeResponse,
   InitiativesResponse,
   MemberResponse,
   MetricsResponse,
@@ -10,6 +12,7 @@ import type {
   ScopeResponse,
   Stage,
   ApprovalResponse,
+  TeamMembersResponse,
 } from '../types';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(
@@ -45,7 +48,16 @@ const request = async <T>(path: string, options: RequestOptions = {}) => {
     throw new Error(message);
   }
 
-  return (await response.json()) as T;
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
 };
 
 export const fetchInitiatives = () =>
@@ -89,8 +101,11 @@ export const updateScope = (
     summary: string;
     deliverables: string;
     status: string;
+    projectType: string;
     pmApproved: boolean;
     architectApproved: boolean;
+    dataMetrics: Record<string, unknown>;
+    aiMetrics: Record<string, unknown>;
   }>,
 ) =>
   request<ScopeResponse>(`/api/initiatives/${initiativeId}/sow`, {
@@ -140,3 +155,56 @@ export const updateTeamMemberOnboarding = (
       body: payload,
     },
   );
+
+export const assignTeamMember = (
+  initiativeId: string,
+  payload: { memberId: string; responsibility: string },
+) =>
+  request<AssignmentResponse>(
+    `/api/initiatives/${initiativeId}/team-members`,
+    {
+      method: 'POST',
+      body: payload,
+    },
+  );
+
+export const removeTeamMember = (initiativeId: string, memberId: string) =>
+  request<void>(
+    `/api/initiatives/${initiativeId}/team-members/${memberId}`,
+    {
+      method: 'DELETE',
+    },
+  );
+
+export const fetchTeamMembers = () =>
+  request<TeamMembersResponse>('/api/team-members');
+
+export const createTeamMember = (payload: {
+  name: string;
+  email: string;
+  roleTitle: string;
+  team: string;
+  startDate?: string;
+}) =>
+  request<MemberResponse>('/api/team-members', {
+    method: 'POST',
+    body: payload,
+  });
+
+export const createInitiative = (payload: Record<string, unknown>) =>
+  request<InitiativeResponse>('/api/initiatives', {
+    method: 'POST',
+    body: payload,
+  });
+
+export const updateInitiative = (
+  initiativeId: string,
+  payload: Record<string, unknown>,
+) =>
+  request<InitiativeResponse>(`/api/initiatives/${initiativeId}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+
+export const deleteInitiative = (initiativeId: string) =>
+  request<void>(`/api/initiatives/${initiativeId}`, { method: 'DELETE' });

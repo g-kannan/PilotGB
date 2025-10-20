@@ -57,9 +57,25 @@ Visit `http://localhost:5173` to access the PilotGB control tower.
 - **Frontend**: No automated UI tests yet; rely on manual smoke testing (see `/docs/architecture.md` for future coverage ideas).
 
 ## Key Workflows
-- **SOW Governance**: Update scope summaries, capture PM/Data Architect approvals, and sign contracts directly from the Scope of Work panel. The API enforces that SOWs reach `APPROVED` (and ultimately `SIGNED_OFF`) before production deployment.
+- **Project Onboarding**: Create or archive initiatives from the control tower, set engagement/SOW metadata, and capture project ownership (PM + Data Architect) up front.
+- **SOW Governance & Metrics**: Update scope summaries, capture PM/Data Architect approvals, and sign contracts directly from the Scope of Work panel. Data and AI deliverables are quantified with structured metrics before progression is allowed.
 - **Stage Gating**: Lifecycle transitions require completed checklists plus explicit approvals from the assigned project manager and data architect. Attempts without those gates return structured 400 errors.
 - **Team Onboarding**: Coordinate staffing and access provisioning through the onboarding dashboard. Each assignment tracks onboarding status and system-level access requests with live updates to the backend.
+
+## Data & AI Scope Indicators
+- **Data Projects**
+  - `# Data Sources`, `# Tables / Entities`, `# Pipelines / Jobs`
+  - `# Dashboards / Reports`, `# Models (Data)`
+  - `Volume of Data Processed (TB)`
+  - `Complexity Score` (`LOW`, `MEDIUM`, `HIGH`)
+  - `Data Sensitivity / Compliance Level` (`INTERNAL`, `CONFIDENTIAL`, `REGULATED`)
+- **AI / ML Deliverables**
+  - `Model Type / Use Case`, `Deployment Status`
+  - `Baseline Accuracy / Target Accuracy`
+  - `Training Data Volume (TB)`, `# Features`, `Training Iterations`
+  - `Model Monitoring KPIs` (drift, latency, accuracy, etc.)
+
+These metrics are editable per initiative and drive the readiness checks enforced by the API when scopes or stages change.
 
 ## Useful Scripts
 | Command | Description |

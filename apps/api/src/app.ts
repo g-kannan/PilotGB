@@ -6,6 +6,7 @@ import { config } from './config.js';
 import { initiativesRouter } from './routes/initiatives.js';
 import { assetsRouter } from './routes/assets.js';
 import { metricsRouter } from './routes/metrics.js';
+import { teamMembersRouter } from './routes/team-members.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { errorHandler } from './middleware/error-handler.js';
 
@@ -29,6 +30,7 @@ export const createApp = () => {
   app.use('/api/initiatives', initiativesRouter);
   app.use('/api/assets', assetsRouter);
   app.use('/api/metrics', metricsRouter);
+  app.use('/api/team-members', teamMembersRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

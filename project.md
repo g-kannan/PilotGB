@@ -1,6 +1,6 @@
 # PilotGB Project Overview
 
-PilotGB is a project management platform designed for data professionals who need visibility into the full lifecycle of their data projects. Unlike generic work trackers, PilotGB models the nuanced progression of data work—including ingestion, transformation, enrichment, validation, and visualization—while keeping every deliverable anchored to an agreed Scope of Work (SOW) so teams can plan, execute, and communicate with confidence.
+PilotGB is a project management platform designed for data professionals who need visibility into the full lifecycle of their data projects. Unlike generic work trackers, PilotGB models the nuanced progression of data work--including ingestion, transformation, enrichment, validation, and visualization--while keeping every deliverable anchored to an agreed Scope of Work (SOW) so teams can plan, execute, and communicate with confidence.
 
 ## Vision
 - Centralize all data project initiatives in a single, collaborative workspace.
@@ -16,29 +16,45 @@ PilotGB is a project management platform designed for data professionals who nee
 
 ## Key Features
 1. **Lifecycle Boards**
-   - Kanban-style views segmented by data progression states (Ingestion → Transformation → Enrichment → Validation → Visualization → Deployment).
+   - Kanban-style views segmented by data progression states (Ingestion -> Transformation -> Enrichment -> Validation -> Visualization -> Deployment).
    - Configurable stage definitions with built-in exit criteria, quality gates, and scope guardrails tied to the SOW.
 
-2. **Data Asset Registry**
+2. **Project Onboarding & SOW Setup**
+   - Create initiatives, define scope summaries/deliverables, and set project ownership (PM + Data Architect) from a guided form.
+   - Capture structured data and AI scope indicators that drive delivery readiness and executive reporting.
+
+3. **Data Asset Registry**
    - Link initiatives to datasets, models, dashboards, and pipeline runs.
    - Capture contractual commitments, deliverable definitions, and acceptance criteria for each asset to ensure SOW alignment.
 
-3. **Task Templates & Playbooks**
-   - Pre-built templates for ingestion jobs, schema migrations, transformation logic updates, and visualization rollouts.
-   - Reusable checklists that ensure compliance with governance, documentation, and SOW boundaries.
+4. **Team Onboarding & Access**
+   - Maintain a project roster, assign responsibilities, and track onboarding status in one place.
+   - Manage access provisioning tasks per system, surfacing blockers before they impact delivery.
 
-4. **Observability & Health Metrics**
+5. **Observability & Health Metrics**
    - Centralized dashboards that track pipeline status, data freshness, and validation results captured within PilotGB.
    - Automated alerts when progression stages stall, quality thresholds are breached, or teams attempt work outside the defined scope.
 
-5. **Collaboration Hub**
+6. **Collaboration Hub**
    - Contextual discussions, decisions, and approvals attached to each stage.
    - Meeting notes, RFCs, and experiment summaries captured alongside deliverables, with explicit linkage back to SOW commitments.
+
+## Data & AI Scope Indicators
+- **Data Projects**
+  - Number of data sources, tables/entities, pipelines/jobs, dashboards/reports, and data models.
+  - Volume of data processed (TB).
+  - Complexity score (Low / Medium / High).
+  - Data sensitivity or compliance level (Internal / Confidential / Regulated).
+- **AI / ML Components**
+  - Model type/use case and deployment status.
+  - Baseline accuracy vs. target accuracy.
+  - Training data volume (TB), feature count, and training iterations.
+  - Model monitoring KPIs (drift, latency, accuracy, etc.).
 
 ## Workflow Highlights
 1. **Stage-Gated Progression**
    - Every initiative advances through defined stages with tailored entry/exit requirements.
-   - Stage transitions can trigger automated actions—e.g., kick off validation suites or notify visualization owners.
+   - Stage transitions can trigger automated actions (e.g., kick off validation suites or notify visualization owners).
 
 2. **Data-Centric Roadmaps**
    - Roadmaps align deliverables with data assets, business outcomes, strategic OKRs, and contractual commitments.

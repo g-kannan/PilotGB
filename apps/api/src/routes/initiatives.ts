@@ -1,16 +1,19 @@
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
 import {
   AccessStatus,
   AssetType,
+  DataComplexity,
+  DataSensitivity,
   DependencyStatus,
   HealthStatus,
   InitiativeStatus,
+  ModelDeploymentStatus,
+  OnboardingStatus,
+  ProjectType,
   RiskLevel,
   RiskStatus,
   SOWStatus,
-  OnboardingStatus,
   Stage,
   StageApprovalRole,
 } from '@prisma/client';
@@ -31,6 +34,7 @@ const createInitiativeSchema = z.object({
   targetDate: z.coerce.date().optional(),
   healthStatus: z.nativeEnum(HealthStatus).default(HealthStatus.HEALTHY),
   riskLevel: z.nativeEnum(RiskLevel).default(RiskLevel.LOW),
+  scope: sowInputSchema.optional(),
 });
 
 const updateInitiativeSchema = z
@@ -100,6 +104,33 @@ const createDependencySchema = z.object({
   status: z.nativeEnum(DependencyStatus).default(DependencyStatus.OPEN),
 });
 
+const dataMetricsSchema = z
+  .object({
+    dataSources: z.coerce.number().int().min(0).optional(),
+    tables: z.coerce.number().int().min(0).optional(),
+    pipelines: z.coerce.number().int().min(0).optional(),
+    dashboards: z.coerce.number().int().min(0).optional(),
+    models: z.coerce.number().int().min(0).optional(),
+    volumeTb: z.coerce.number().min(0).optional(),
+    complexity: z.nativeEnum(DataComplexity).optional(),
+    sensitivity: z.nativeEnum(DataSensitivity).optional(),
+  })
+  .strict();
+
+const aiMetricsSchema = z
+  .object({
+    modelType: z.string().optional(),
+    useCase: z.string().optional(),
+    baselineAccuracy: z.coerce.number().min(0).max(100).optional(),
+    targetAccuracy: z.coerce.number().min(0).max(100).optional(),
+    trainingDataTb: z.coerce.number().min(0).optional(),
+    featureCount: z.coerce.number().int().min(0).optional(),
+    trainingIterations: z.coerce.number().int().min(0).optional(),
+    deploymentStatus: z.nativeEnum(ModelDeploymentStatus).optional(),
+    monitoringKpis: z.string().optional(),
+  })
+  .strict();
+
 const updateSowSchema = z
   .object({
     summary: z.string().min(10).optional(),
@@ -107,6 +138,9 @@ const updateSowSchema = z
     status: z.nativeEnum(SOWStatus).optional(),
     pmApproved: z.boolean().optional(),
     architectApproved: z.boolean().optional(),
+    projectType: z.nativeEnum(ProjectType).optional(),
+    dataMetrics: dataMetricsSchema.optional(),
+    aiMetrics: aiMetricsSchema.optional(),
   })
   .refine(
     (data) =>
@@ -138,6 +172,21 @@ const onboardingUpdateSchema = z.object({
   startDate: z.coerce.date().optional(),
 });
 
+const assignmentCreateSchema = z.object({
+  memberId: z.string().cuid(),
+  responsibility: z.string().min(2),
+});
+
+const sowInputSchema = z
+  .object({
+    summary: z.string().min(10),
+    deliverables: z.string().min(10),
+    projectType: z.nativeEnum(ProjectType).default(ProjectType.DATA),
+    dataMetrics: dataMetricsSchema.optional(),
+    aiMetrics: aiMetricsSchema.optional(),
+  })
+  .strict();
+
 const REQUIRED_APPROVAL_ROLES: StageApprovalRole[] = [
   StageApprovalRole.PROJECT_MANAGER,
   StageApprovalRole.DATA_ARCHITECT,
@@ -152,7 +201,12 @@ const initiativeInclude = {
     orderBy: { createdAt: 'asc' as const },
   },
   approvals: true,
-  scopeOfWork: true,
+  scopeOfWork: {
+    include: {
+      dataMetrics: true,
+      aiMetrics: true,
+    },
+  },
   assignments: {
     include: {
       member: true,
@@ -210,12 +264,35 @@ router.get(
   }),
 );
 
+router.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    try {
+      await prisma.initiative.delete({
+        where: { id: req.params.id },
+      });
+    } catch {
+      throw notFound('Initiative not found');
+    }
+
+    res.status(204).send();
+  }),
+);
+
 router.post(
   '/',
   asyncHandler(async (req, res) => {
     const payload = createInitiativeSchema.parse(req.body);
 
     const initiative = await prisma.$transaction(async (tx) => {
+      const scopeInput = payload.scope ?? {
+        summary:
+          'Define project scope, deliverables, and guardrails aligned to the customer engagement.',
+        deliverables:
+          'Populate during project onboarding. Include lifecycle stages, success metrics, and acceptance criteria.',
+        projectType: ProjectType.DATA,
+      };
+
       const created = await tx.initiative.create({
         data: {
           name: payload.name,
@@ -246,18 +323,54 @@ router.post(
         },
       });
 
-      await tx.scopeOfWork.create({
+      const scope = await tx.scopeOfWork.create({
         data: {
           initiativeId: created.id,
-          summary:
-            'Define project scope, deliverables, and guardrails aligned to the customer engagement.',
-          deliverables:
-            'Populate during project onboarding. Include lifecycle stages, success metrics, and acceptance criteria.',
+          summary: scopeInput.summary,
+          deliverables: scopeInput.deliverables,
           status: SOWStatus.DRAFT,
-          pmOwner: payload.projectManager ?? 'TBD Project Manager',
-          architectOwner: payload.dataArchitect ?? 'TBD Data Architect',
+          projectType: scopeInput.projectType ?? ProjectType.DATA,
+          pmOwner: payload.projectManager ?? 'Unassigned PM',
+          architectOwner: payload.dataArchitect ?? 'Unassigned Architect',
         },
       });
+
+      if (scopeInput.dataMetrics) {
+        await tx.dataScopeMetrics.create({
+          data: {
+            scopeOfWorkId: scope.id,
+            dataSources: scopeInput.dataMetrics.dataSources ?? 0,
+            tables: scopeInput.dataMetrics.tables ?? 0,
+            pipelines: scopeInput.dataMetrics.pipelines ?? 0,
+            dashboards: scopeInput.dataMetrics.dashboards ?? 0,
+            models: scopeInput.dataMetrics.models ?? 0,
+            volumeTb: scopeInput.dataMetrics.volumeTb ?? 0,
+            complexity:
+              scopeInput.dataMetrics.complexity ?? DataComplexity.MEDIUM,
+            sensitivity:
+              scopeInput.dataMetrics.sensitivity ?? DataSensitivity.INTERNAL,
+          },
+        });
+      }
+
+      if (scopeInput.aiMetrics) {
+        await tx.aiScopeMetrics.create({
+          data: {
+            scopeOfWorkId: scope.id,
+            modelType: scopeInput.aiMetrics.modelType ?? null,
+            useCase: scopeInput.aiMetrics.useCase ?? null,
+            baselineAccuracy: scopeInput.aiMetrics.baselineAccuracy ?? null,
+            targetAccuracy: scopeInput.aiMetrics.targetAccuracy ?? null,
+            trainingDataTb: scopeInput.aiMetrics.trainingDataTb ?? null,
+            featureCount: scopeInput.aiMetrics.featureCount ?? null,
+            trainingIterations: scopeInput.aiMetrics.trainingIterations ?? null,
+            deploymentStatus:
+              scopeInput.aiMetrics.deploymentStatus ??
+              ModelDeploymentStatus.IDEATION,
+            monitoringKpis: scopeInput.aiMetrics.monitoringKpis ?? null,
+          },
+        });
+      }
 
       await tx.stageApproval.createMany({
         data: STAGE_SEQUENCE.flatMap((stage) =>
@@ -610,6 +723,10 @@ router.get(
   asyncHandler(async (req, res) => {
     const scope = await prisma.scopeOfWork.findUnique({
       where: { initiativeId: req.params.id },
+      include: {
+        dataMetrics: true,
+        aiMetrics: true,
+      },
     });
 
     if (!scope) {
@@ -648,6 +765,9 @@ router.patch(
     if (payload.deliverables !== undefined) {
       updates.deliverables = payload.deliverables;
     }
+    if (payload.projectType !== undefined) {
+      updates.projectType = payload.projectType;
+    }
     if (payload.status !== undefined) {
       updates.status = payload.status;
       updates.signedOffAt =
@@ -679,7 +799,141 @@ router.patch(
       data: updates,
     });
 
-    res.json({ scope: updated });
+    const hasDataMetricsUpdate =
+      payload.dataMetrics &&
+      Object.values(payload.dataMetrics).some(
+        (value) => value !== undefined && value !== null,
+      );
+
+    if (hasDataMetricsUpdate) {
+      const dataMetrics = await prisma.dataScopeMetrics.findUnique({
+        where: { scopeOfWorkId: updated.id },
+      });
+      if (dataMetrics) {
+        const updateData: Prisma.DataScopeMetricsUpdateInput = {};
+        if (payload.dataMetrics?.dataSources !== undefined) {
+          updateData.dataSources = payload.dataMetrics.dataSources;
+        }
+        if (payload.dataMetrics?.tables !== undefined) {
+          updateData.tables = payload.dataMetrics.tables;
+        }
+        if (payload.dataMetrics?.pipelines !== undefined) {
+          updateData.pipelines = payload.dataMetrics.pipelines;
+        }
+        if (payload.dataMetrics?.dashboards !== undefined) {
+          updateData.dashboards = payload.dataMetrics.dashboards;
+        }
+        if (payload.dataMetrics?.models !== undefined) {
+          updateData.models = payload.dataMetrics.models;
+        }
+        if (payload.dataMetrics?.volumeTb !== undefined) {
+          updateData.volumeTb = payload.dataMetrics.volumeTb;
+        }
+        if (payload.dataMetrics?.complexity !== undefined) {
+          updateData.complexity = payload.dataMetrics.complexity;
+        }
+        if (payload.dataMetrics?.sensitivity !== undefined) {
+          updateData.sensitivity = payload.dataMetrics.sensitivity;
+        }
+
+        await prisma.dataScopeMetrics.update({
+          where: { scopeOfWorkId: updated.id },
+          data: updateData,
+        });
+      } else {
+        await prisma.dataScopeMetrics.create({
+          data: {
+            scopeOfWorkId: updated.id,
+            dataSources: payload.dataMetrics?.dataSources ?? 0,
+            tables: payload.dataMetrics?.tables ?? 0,
+            pipelines: payload.dataMetrics?.pipelines ?? 0,
+            dashboards: payload.dataMetrics?.dashboards ?? 0,
+            models: payload.dataMetrics?.models ?? 0,
+            volumeTb: payload.dataMetrics?.volumeTb ?? 0,
+            complexity:
+              payload.dataMetrics?.complexity ?? DataComplexity.MEDIUM,
+            sensitivity:
+              payload.dataMetrics?.sensitivity ?? DataSensitivity.INTERNAL,
+          },
+        });
+      }
+    }
+
+    const hasAiMetricsUpdate =
+      payload.aiMetrics &&
+      Object.values(payload.aiMetrics).some(
+        (value) => value !== undefined && value !== null,
+      );
+
+    if (hasAiMetricsUpdate) {
+      const aiMetrics = await prisma.aiScopeMetrics.findUnique({
+        where: { scopeOfWorkId: updated.id },
+      });
+
+      const aiPayload = payload.aiMetrics ?? {};
+
+      if (aiMetrics) {
+        const updateData: Prisma.AiScopeMetricsUpdateInput = {};
+        if (aiPayload.modelType !== undefined) {
+          updateData.modelType = aiPayload.modelType;
+        }
+        if (aiPayload.useCase !== undefined) {
+          updateData.useCase = aiPayload.useCase;
+        }
+        if (aiPayload.baselineAccuracy !== undefined) {
+          updateData.baselineAccuracy = aiPayload.baselineAccuracy;
+        }
+        if (aiPayload.targetAccuracy !== undefined) {
+          updateData.targetAccuracy = aiPayload.targetAccuracy;
+        }
+        if (aiPayload.trainingDataTb !== undefined) {
+          updateData.trainingDataTb = aiPayload.trainingDataTb;
+        }
+        if (aiPayload.featureCount !== undefined) {
+          updateData.featureCount = aiPayload.featureCount;
+        }
+        if (aiPayload.trainingIterations !== undefined) {
+          updateData.trainingIterations = aiPayload.trainingIterations;
+        }
+        if (aiPayload.deploymentStatus !== undefined) {
+          updateData.deploymentStatus = aiPayload.deploymentStatus;
+        }
+        if (aiPayload.monitoringKpis !== undefined) {
+          updateData.monitoringKpis = aiPayload.monitoringKpis;
+        }
+
+        await prisma.aiScopeMetrics.update({
+          where: { scopeOfWorkId: updated.id },
+          data: updateData,
+        });
+      } else {
+        await prisma.aiScopeMetrics.create({
+          data: {
+            scopeOfWorkId: updated.id,
+            modelType: aiPayload.modelType ?? null,
+            useCase: aiPayload.useCase ?? null,
+            baselineAccuracy: aiPayload.baselineAccuracy ?? null,
+            targetAccuracy: aiPayload.targetAccuracy ?? null,
+            trainingDataTb: aiPayload.trainingDataTb ?? null,
+            featureCount: aiPayload.featureCount ?? null,
+            trainingIterations: aiPayload.trainingIterations ?? null,
+            deploymentStatus:
+              aiPayload.deploymentStatus ?? ModelDeploymentStatus.IDEATION,
+            monitoringKpis: aiPayload.monitoringKpis ?? null,
+          },
+        });
+      }
+    }
+
+    const refreshed = await prisma.scopeOfWork.findUniqueOrThrow({
+      where: { id: updated.id },
+      include: {
+        dataMetrics: true,
+        aiMetrics: true,
+      },
+    });
+
+    res.json({ scope: refreshed });
   }),
 );
 
@@ -766,6 +1020,52 @@ router.patch(
   }),
 );
 
+router.post(
+  '/:id/team-members',
+  asyncHandler(async (req, res) => {
+    const payload = assignmentCreateSchema.parse(req.body);
+
+    const initiative = await prisma.initiative.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!initiative) {
+      throw notFound('Initiative not found');
+    }
+
+    const member = await prisma.teamMember.findUnique({
+      where: { id: payload.memberId },
+    });
+
+    if (!member) {
+      throw notFound('Team member not found');
+    }
+
+    try {
+      const assignment = await prisma.initiativeAssignment.create({
+        data: {
+          initiativeId: initiative.id,
+          memberId: payload.memberId,
+          responsibility: payload.responsibility,
+        },
+        include: {
+          member: true,
+        },
+      });
+
+      res.status(201).json({ assignment });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw badRequest('Team member already assigned to this initiative.');
+      }
+      throw error;
+    }
+  }),
+);
+
 router.patch(
   '/:id/team-members/:memberId',
   asyncHandler(async (req, res) => {
@@ -796,6 +1096,26 @@ router.patch(
     });
 
     res.json({ member: updatedMember });
+  }),
+);
+
+router.delete(
+  '/:id/team-members/:memberId',
+  asyncHandler(async (req, res) => {
+    try {
+      await prisma.initiativeAssignment.delete({
+        where: {
+          initiativeId_memberId: {
+            initiativeId: req.params.id,
+            memberId: req.params.memberId,
+          },
+        },
+      });
+    } catch {
+      throw notFound('Team member assignment not found for this initiative');
+    }
+
+    res.status(204).send();
   }),
 );
 
