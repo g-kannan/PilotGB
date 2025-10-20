@@ -264,12 +264,12 @@ export const TeamOnboarding = () => {
 
               return (
                 <article key={initiative.id} className="onboarding-card">
-                <header className="onboarding-card__header">
-                  <div>
-                    <h3>{initiative.name}</h3>
-                    <p>{initiative.description}</p>
-                  </div>
-                </header>
+                  <header className="onboarding-card__header">
+                    <div>
+                      <h3>{initiative.name}</h3>
+                      <p>{initiative.description}</p>
+                    </div>
+                  </header>
                 <div className="onboarding-card__section">
                   <h4>Assignments</h4>
                   <table>
@@ -427,12 +427,12 @@ export const TeamOnboarding = () => {
                     </tbody>
                   </table>
                 </div>
-              </article>
+                </article>
               );
             })}
           </div>
         </>
-        )}
+      )}
       </div>
     </section>
   );

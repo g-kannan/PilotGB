@@ -383,7 +383,7 @@ export const CreateInitiativeForm = () => {
               type="submit"
               disabled={mutation.isPending}
             >
-              {mutation.isPending ? 'Creating…' : 'Create Project'}
+              {mutation.isPending ? 'Creating...' : 'Create Project'}
             </button>
           </div>
         </form>

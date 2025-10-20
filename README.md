@@ -11,41 +11,37 @@ PilotGB is a lifecycle-aware project management platform for data teams. It comb
 ### 1. Prerequisites
 - Node.js 18+
 - pnpm 9 (`corepack enable` to install)
-- Docker (for PostgreSQL)
+- A PostgreSQL database (Neon recommended)
 
-### 2. Install Dependencies
+### 2. Install dependencies
 ```bash
 pnpm install
 ```
 
-### 3. Start PostgreSQL
-```bash
-docker compose up -d db
-```
-The database listens on `localhost:5432` with user/password `pilotgb` (see `docker-compose.yml`).
-
-### 4. Configure Environment
+### 3. Configure the database connection
 ```bash
 cp apps/api/.env.example apps/api/.env
 ```
-Adjust credentials if you changed the Docker defaults.
+Edit `apps/api/.env` so that `DATABASE_URL` points to your Neon database (e.g. `postgresql://<user>:<password>@<host>/<database>?sslmode=require`). If your Neon project exposes a pooled/unpooled split, set `DIRECT_URL` as well.
 
-### 5. Apply Database Schema & Seed
+> **Optional (local fallback):** You can still use the provided `docker-compose.yml` to run PostgreSQL locally (`docker compose up -d db`) and point `DATABASE_URL` to `postgresql://pilotgb:pilotgb@localhost:5432/pilotgb?schema=public`.
+
+### 4. Apply the Prisma schema
 ```bash
 cd apps/api
 pnpm generate
 pnpm db:push
-pnpm db:seed
 cd ../..
 ```
+> The seed script wipes and reloads demo data. Only run `pnpm db:seed` against disposable databases.
 
-### 6. Run the API
+### 5. Run the API
 ```bash
 pnpm dev:api
 ```
 The API runs on `http://localhost:4000` and exposes endpoints under `/api`.
 
-### 7. Run the Web App
+### 6. Run the web app
 In a new terminal:
 ```bash
 pnpm dev:web

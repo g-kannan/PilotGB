@@ -23,24 +23,10 @@ import { asyncHandler } from '../utils/async-handler.js';
 import { badRequest, notFound } from '../errors.js';
 import { ensureValidTransition, STAGE_SEQUENCE } from '../domain/stage.js';
 
-const createInitiativeSchema = z.object({
-  name: z.string().min(3),
-  description: z.string().min(10),
-  sowReference: z.string().optional(),
-  engagementLead: z.string().optional(),
-  projectManager: z.string().optional(),
-  dataArchitect: z.string().optional(),
-  startDate: z.coerce.date().optional(),
-  targetDate: z.coerce.date().optional(),
-  healthStatus: z.nativeEnum(HealthStatus).default(HealthStatus.HEALTHY),
-  riskLevel: z.nativeEnum(RiskLevel).default(RiskLevel.LOW),
-  scope: sowInputSchema.optional(),
-});
-
 const updateInitiativeSchema = z
   .object({
-    name: z.string().min(3).optional(),
-    description: z.string().min(10).optional(),
+    name: z.string().trim().optional(),
+    description: z.string().trim().optional(),
     status: z.nativeEnum(InitiativeStatus).optional(),
     healthStatus: z.nativeEnum(HealthStatus).optional(),
     riskLevel: z.nativeEnum(RiskLevel).optional(),
@@ -133,8 +119,8 @@ const aiMetricsSchema = z
 
 const updateSowSchema = z
   .object({
-    summary: z.string().min(10).optional(),
-    deliverables: z.string().min(10).optional(),
+    summary: z.string().trim().optional(),
+    deliverables: z.string().trim().optional(),
     status: z.nativeEnum(SOWStatus).optional(),
     pmApproved: z.boolean().optional(),
     architectApproved: z.boolean().optional(),
@@ -179,13 +165,27 @@ const assignmentCreateSchema = z.object({
 
 const sowInputSchema = z
   .object({
-    summary: z.string().min(10),
-    deliverables: z.string().min(10),
+    summary: z.string().trim().default(''),
+    deliverables: z.string().trim().default(''),
     projectType: z.nativeEnum(ProjectType).default(ProjectType.DATA),
     dataMetrics: dataMetricsSchema.optional(),
     aiMetrics: aiMetricsSchema.optional(),
   })
   .strict();
+
+const createInitiativeSchema = z.object({
+  name: z.string().trim(),
+  description: z.string().trim().default(''),
+  sowReference: z.string().optional(),
+  engagementLead: z.string().optional(),
+  projectManager: z.string().optional(),
+  dataArchitect: z.string().optional(),
+  startDate: z.coerce.date().optional(),
+  targetDate: z.coerce.date().optional(),
+  healthStatus: z.nativeEnum(HealthStatus).default(HealthStatus.HEALTHY),
+  riskLevel: z.nativeEnum(RiskLevel).default(RiskLevel.LOW),
+  scope: sowInputSchema.optional(),
+});
 
 const REQUIRED_APPROVAL_ROLES: StageApprovalRole[] = [
   StageApprovalRole.PROJECT_MANAGER,

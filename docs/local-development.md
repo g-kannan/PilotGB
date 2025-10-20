@@ -14,33 +14,24 @@ This guide expands on the README quick start with more detail about running Pilo
    pnpm install
    ```
 
-## 2. Start PostgreSQL
-The repository includes a Docker Compose service for PostgreSQL.
-
-```bash
-docker compose up -d db
-```
-
-Connection defaults:
-- Host: `localhost`
-- Port: `5432`
-- User: `pilotgb`
-- Password: `pilotgb`
-- Database: `pilotgb`
-
-## 3. Configure the API
-1. Copy the environment template:
+## 2. Configure PostgreSQL (Neon recommended)
+1. Create a database in [Neon](https://neon.tech/) (or any managed PostgreSQL provider). Copy the connection string (usually ends with `?sslmode=require`).
+2. Copy the environment template and paste the connection string:
    ```bash
    cp apps/api/.env.example apps/api/.env
    ```
-2. Run Prisma client generation and push the schema:
-   ```bash
-   cd apps/api
-   pnpm generate     # prisma generate
-   pnpm db:push      # sync schema to Postgres
-   pnpm db:seed      # load sample initiatives, assets, and risks
-   cd ../..
-   ```
+   Update `DATABASE_URL` (and `DIRECT_URL` if needed) inside `apps/api/.env`.
+
+> **Local fallback:** if you prefer running PostgreSQL yourself, `docker-compose.yml` still spins up a compatible instance. Start it with `docker compose up -d db` and point `DATABASE_URL` to `postgresql://pilotgb:pilotgb@localhost:5432/pilotgb?schema=public`.
+
+## 3. Sync Prisma with the database
+```bash
+cd apps/api
+pnpm generate     # prisma generate
+pnpm db:push      # sync schema to your database
+cd ../..
+```
+> The optional seed (`pnpm db:seed`) wipes and reloads demo data. Only run it on disposable environments.
 
 ## 4. Run Services
 Start the backend (Express API):
