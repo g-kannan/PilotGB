@@ -182,7 +182,7 @@ export const TeamOnboarding = () => {
         )}
       </header>
       <div className="panel__body">
-        {isLoading && <p>Loading onboarding data�?�</p>}
+        {isLoading && <p>Loading onboarding data--</p>}
         {isError && (
           <p className="panel__body--error">
             {error instanceof Error
@@ -212,12 +212,12 @@ export const TeamOnboarding = () => {
                   type="submit"
                   disabled={createMemberMutation.isPending}
                 >
-                  {createMemberMutation.isPending ? 'Adding…' : 'Add Member'}
+                  {createMemberMutation.isPending ? 'Adding...' : 'Add Member'}
                 </button>
               </form>
             </div>
             <div className="onboarding-grid">
-              {data.initiatives.map((initiative: Initiative) => {
+              {data.initiatives.map((initiative) => {
               const assignedMemberIds = new Set(
                 initiative.assignments.map((assignment) => assignment.member.id),
               );
@@ -323,7 +323,7 @@ export const TeamOnboarding = () => {
                               }
                             >
                               {removingMemberId === assignment.member.id
-                                ? 'Removing…'
+                                ? 'Removing...'
                                 : 'Remove'}
                             </button>
                           </td>
@@ -354,7 +354,7 @@ export const TeamOnboarding = () => {
                         </option>
                         {availableMembers.map((member) => (
                           <option key={member.id} value={member.id}>
-                            {member.name} · {member.team}
+                            {member.name} - {member.team}
                           </option>
                         ))}
                       </select>
@@ -368,7 +368,7 @@ export const TeamOnboarding = () => {
                         type="submit"
                         disabled={assignPending || membersQuery.isLoading}
                       >
-                        {assignPending ? 'Assigning…' : 'Assign'}
+                        {assignPending ? 'Assigning...' : 'Assign'}
                       </button>
                     </form>
                   ) : (
@@ -414,7 +414,7 @@ export const TeamOnboarding = () => {
                               ))}
                             </select>
                           </td>
-                          <td>{access.notes ?? '—'}</td>
+                          <td>{access.notes ?? '-'}</td>
                         </tr>
                       ))}
                       {!initiative.accessRequests.length && (
@@ -428,6 +428,7 @@ export const TeamOnboarding = () => {
                   </table>
                 </div>
               </article>
+              );
             })}
           </div>
         </>
