@@ -1,0 +1,13 @@
+{
+  "name": "pilotgb",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "pnpm --recursive --parallel --filter pilotgb-* dev",
+    "dev:api": "pnpm --filter pilotgb-api dev",
+    "dev:web": "pnpm --filter pilotgb-web dev",
+    "lint": "pnpm -r lint",
+    "format": "pnpm -r format",
+    "generate": "pnpm -r generate"
+  }
+}

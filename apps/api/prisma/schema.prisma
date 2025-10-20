@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Stage {
+  INGESTION
+  TRANSFORMATION
+  ENRICHMENT
+  VALIDATION
+  VISUALIZATION
+  DEPLOYMENT
+}
+
+enum InitiativeStatus {
+  ON_TRACK
+  AT_RISK
+  BLOCKED
+  COMPLETE
+  ARCHIVED
+}
+
+enum HealthStatus {
+  HEALTHY
+  WATCH
+  CRITICAL
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATED
+  CLOSED
+}
+
+enum DependencyStatus {
+  OPEN
+  BLOCKED
+  CLEARED
+}
+
+enum AssetType {
+  DATASET
+  MODEL
+  DASHBOARD
+  PIPELINE
+  REPORT
+  OTHER
+}
+
+enum SOWStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SIGNED_OFF
+}
+
+enum OnboardingStatus {
+  AWAITING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum AccessStatus {
+  REQUESTED
+  IN_PROGRESS
+  GRANTED
+  BLOCKED
+}
+
+enum StageApprovalRole {
+  PROJECT_MANAGER
+  DATA_ARCHITECT
+}
+
+model Initiative {
+  id             String              @id @default(cuid())
+  name           String
+  description    String
+  stage          Stage               @default(INGESTION)
+  status         InitiativeStatus    @default(ON_TRACK)
+  healthStatus   HealthStatus        @default(HEALTHY)
+  riskLevel      RiskLevel           @default(LOW)
+  sowReference   String?
+  startDate      DateTime?
+  targetDate     DateTime?
+  engagementLead String?
+  projectManager String?
+  dataArchitect  String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  checklistItems StageChecklistItem[]
+  stageHistory   StageHistory[]
+  assets         DataAsset[]
+  risks          Risk[]
+  dependencies   Dependency[]
+  approvals      StageApproval[]
+  scopeOfWork    ScopeOfWork?
+  assignments    InitiativeAssignment[]
+  accessRequests AccessProvision[]
+
+  @@index([stage])
+  @@index([status])
+  @@index([healthStatus])
+}
+
+model StageHistory {
+  id           String   @id @default(cuid())
+  initiativeId String
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  fromStage    Stage?
+  toStage      Stage
+  reason       String?
+  actor        String?
+  createdAt    DateTime @default(now())
+}
+
+model StageChecklistItem {
+  id           String   @id @default(cuid())
+  initiativeId String
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  stage        Stage
+  title        String
+  description  String?
+  completed    Boolean  @default(false)
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([initiativeId, stage])
+}
+
+model DataAsset {
+  id                String    @id @default(cuid())
+  initiativeId      String
+  initiative        Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  name              String
+  type              AssetType
+  ownerTeam         String
+  steward           String?
+  acceptanceCriteria String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Risk {
+  id            String    @id @default(cuid())
+  initiativeId  String
+  initiative    Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  title         String
+  description   String
+  severity      RiskLevel
+  status        RiskStatus @default(OPEN)
+  mitigationPlan String?
+  identifiedAt  DateTime   @default(now())
+  resolvedAt    DateTime?
+  owner         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Dependency {
+  id             String    @id @default(cuid())
+  initiativeId   String
+  initiative     Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  type           String
+  status         DependencyStatus @default(OPEN)
+  externalSystem String?
+  dueDate        DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model ScopeOfWork {
+  id                 String     @id @default(cuid())
+  initiativeId       String     @unique
+  summary            String
+  deliverables       String
+  status             SOWStatus  @default(DRAFT)
+  pmOwner            String
+  architectOwner     String
+  pmApproved         Boolean    @default(false)
+  pmApprovedAt       DateTime?
+  architectApproved  Boolean    @default(false)
+  architectApprovedAt DateTime?
+  signedOffAt        DateTime?
+  lastReviewedAt     DateTime?  @default(now())
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+}
+
+model StageApproval {
+  id           String             @id @default(cuid())
+  initiativeId String
+  initiative   Initiative         @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  stage        Stage
+  role         StageApprovalRole
+  approved     Boolean            @default(false)
+  approvedBy   String?
+  approvedAt   DateTime?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([initiativeId, stage, role])
+}
+
+model TeamMember {
+  id               String            @id @default(cuid())
+  name             String
+  email            String            @unique
+  roleTitle        String
+  team             String
+  onboardingStatus OnboardingStatus  @default(AWAITING)
+  startDate        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  assignments    InitiativeAssignment[]
+  accessRequests AccessProvision[]
+}
+
+model InitiativeAssignment {
+  id           String      @id @default(cuid())
+  initiativeId String
+  memberId     String
+  responsibility String
+  assignedAt   DateTime    @default(now())
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  member     TeamMember  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([initiativeId, memberId])
+}
+
+model AccessProvision {
+  id           String       @id @default(cuid())
+  initiativeId String
+  memberId     String
+  systemName   String
+  status       AccessStatus @default(REQUESTED)
+  requestedAt  DateTime     @default(now())
+  fulfilledAt  DateTime?
+  notes        String?
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  member     TeamMember  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([initiativeId])
+  @@index([memberId])
+}

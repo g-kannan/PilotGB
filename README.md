@@ -1,2 +1,74 @@
 # PilotGB
-Project Management tool for Data Pros
+PilotGB is a lifecycle-aware project management platform for data teams. It combines a PostgreSQL-backed API with a React control tower UI to orchestrate initiatives, safeguard scope of work (SOW) agreements, and surface delivery health.
+
+## Stack
+- **Backend**: Node.js (Express), Prisma ORM, PostgreSQL
+- **Frontend**: React (Vite), TanStack Query
+- **Tooling**: TypeScript across the stack, pnpm workspaces, Vitest
+
+## Getting Started
+
+### 1. Prerequisites
+- Node.js 18+
+- pnpm 9 (`corepack enable` to install)
+- Docker (for PostgreSQL)
+
+### 2. Install Dependencies
+```bash
+pnpm install
+```
+
+### 3. Start PostgreSQL
+```bash
+docker compose up -d db
+```
+The database listens on `localhost:5432` with user/password `pilotgb` (see `docker-compose.yml`).
+
+### 4. Configure Environment
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+Adjust credentials if you changed the Docker defaults.
+
+### 5. Apply Database Schema & Seed
+```bash
+cd apps/api
+pnpm generate
+pnpm db:push
+pnpm db:seed
+cd ../..
+```
+
+### 6. Run the API
+```bash
+pnpm dev:api
+```
+The API runs on `http://localhost:4000` and exposes endpoints under `/api`.
+
+### 7. Run the Web App
+In a new terminal:
+```bash
+pnpm dev:web
+```
+Visit `http://localhost:5173` to access the PilotGB control tower.
+
+## Testing
+- **Backend**: `cd apps/api && pnpm test` (Vitest unit tests for domain logic)
+- **Frontend**: No automated UI tests yet; rely on manual smoke testing (see `/docs/architecture.md` for future coverage ideas).
+
+## Key Workflows
+- **SOW Governance**: Update scope summaries, capture PM/Data Architect approvals, and sign contracts directly from the Scope of Work panel. The API enforces that SOWs reach `APPROVED` (and ultimately `SIGNED_OFF`) before production deployment.
+- **Stage Gating**: Lifecycle transitions require completed checklists plus explicit approvals from the assigned project manager and data architect. Attempts without those gates return structured 400 errors.
+- **Team Onboarding**: Coordinate staffing and access provisioning through the onboarding dashboard. Each assignment tracks onboarding status and system-level access requests with live updates to the backend.
+
+## Useful Scripts
+| Command | Description |
+| ------- | ----------- |
+| `pnpm dev` | Run both API and Web (parallel) |
+| `pnpm dev:api` | API only |
+| `pnpm dev:web` | Web only |
+| `pnpm lint` | Type-check both workspaces |
+| `pnpm generate` | Run Prisma client generation |
+
+## Additional Docs
+- [`docs/architecture.md`](docs/architecture.md) - high-level architecture, domain model, and local workflow.
