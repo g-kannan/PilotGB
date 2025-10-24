@@ -23,3 +23,14 @@ export type { TextareaProps } from './Textarea';
 
 export { FormGroup } from './FormGroup';
 export type { FormGroupProps } from './FormGroup';
+
+// Layout Components
+export { Sidebar } from './Sidebar';
+export type { NavigationItem } from './Sidebar';
+
+export { Breadcrumb, useBreadcrumbs } from './Breadcrumb';
+export type { BreadcrumbItem } from './Breadcrumb';
+
+export { Header } from './Header';
+
+export { Layout } from './Layout';
